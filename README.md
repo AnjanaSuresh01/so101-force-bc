@@ -156,15 +156,36 @@ a press fit needs costs more offset than the controller has, and the part never
 seats. Neither changes the bound; both decide whether the arm can still do the
 job. [docs/admittance-bound.md](docs/admittance-bound.md) has the measurements.
 
-Measured: **settled force lands exactly on the limit at every environment
-stiffness from 400 to 60,000 N/m**, and the worst impact transient across that
-sweep is 1.51× the limit. First contact is an impact, and impact is set by
-approach speed and stiffness rather than by feedback — no controller commanding
-position at 30 Hz avoids that, and [docs/admittance-bound.md](docs/admittance-bound.md)
-publishes the curve rather than claiming otherwise.
+Against the idealised model — an arm that is where it was told to be —
+**settled force lands exactly on the limit at every environment stiffness from
+400 to 60,000 N/m**. Against the simulator it is weaker, and finding out why was
+the most useful thing in this repo.
 
-The guard is not free. On peg insertion it costs task success and buys peak
-force; both directions are in [results/RESULTS.md](results/RESULTS.md).
+Pointing a policy at a fixture and telling it to drive straight through, the
+guard initially made things *worse*: 18.5 N against a 6 N limit, where going
+unguarded reached 14.8 N. The governor was not failing — it was correctly
+declining to act, because the reference was already retreating. What kept
+pressing was the arm, still executing a command issued several ticks earlier.
+Servo torque is proportional to command minus measurement, so the fix is a
+constraint between two positions rather than a reaction to a force: cap how far
+the commanded pose may lead the measured one at `F_limit / K_servo`, with
+`K_servo` measured at 600–674 N/m by pressing each fixture and regressing force
+on that distance.
+
+| task | limit | damage threshold | unguarded ram | guarded |
+|---|---|---|---|---|
+| peg_insert | 6 N | 8 N | 14.8 N | **7.7 N** |
+| wipe | 7 N | 10 N | 25.6 N | **8.5 N** |
+| press_fit | 12 N | 14 N | 26.2 N | **17.1 N** |
+
+Against a policy actively trying to destroy the workpiece, the guard cuts peak
+force by 48–67% and holds two of the three fixtures below the force that damages
+them. On the press fit, where the socket bottoms out on a rigid stop, it does
+not. [docs/admittance-bound.md](docs/admittance-bound.md) has the measurements
+and the instrumentation that found it.
+
+The guard is not free in the other direction either: what it costs in task
+success is in [results/RESULTS.md](results/RESULTS.md).
 
 ---
 
