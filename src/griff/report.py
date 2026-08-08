@@ -188,6 +188,13 @@ def render(payload: dict[str, Any]) -> str:
             if rows:
                 parts.append("### With and without the admittance guard\n")
                 parts.append(
+                    "Only the force-conditioned arm is run twice. The guard's effect is a "
+                    "property of the controller rather than of the conditioning, and the "
+                    "force-conditioned policy is the one that could in principle have "
+                    "learned to limit its own contact -- so it is the interesting one to "
+                    "take the guard away from.\n"
+                )
+                parts.append(
                     _table(
                         rows,
                         [

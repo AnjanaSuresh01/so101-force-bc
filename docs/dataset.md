@@ -5,9 +5,9 @@ v2.1 layout.
 
 | task | episodes | frames | mean length | contact ticks | peak force mean / max |
 |---|---|---|---|---|---|
-| peg_insert | 60 | 3,556 | 59 | 25% | 2.0 N / 3.8 N |
-| wipe | 60 | 7,673 | 128 | 67% | 4.2 N / 5.6 N |
-| press_fit | 60 | 4,162 | 69 | 62% | 8.4 N / 10.6 N |
+| peg_insert | 60 | 3,556 | 59 | 35% | 1.9 N / 4.5 N |
+| wipe | 60 | 7,673 | 128 | 71% | 4.2 N / 5.6 N |
+| press_fit | 60 | 4,162 | 69 | 62% | 8.7 N / 10.3 N |
 
 Recorded by `griff record`, validated by `griff validate-dataset`, and
 regenerable from seed: `griff record --episodes 60 --seed 1` reproduces them.

@@ -113,6 +113,12 @@ a ±3 mm hole offset (about one pixel, and occluded at the moment it matters), a
 ±4° plate tilt, and a ±20% retainer stiffness that is inside the socket.
 [docs/tasks.md](docs/tasks.md) has the details.
 
+All 18 cells were trained identically: 3,000 steps at batch 32, AdamW, cosine
+schedule, seed 0, on 60 demonstrations per task, CPU-only. That is a modest
+budget — ACT's own experiments run far longer — and the absolute success rates
+should be read as "what this much data and compute buys", not as a ceiling. The
+comparison between cells is what the budget was spent to make fair.
+
 ---
 
 ## What the safety layer does and does not guarantee

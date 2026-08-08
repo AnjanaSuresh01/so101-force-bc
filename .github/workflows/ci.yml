@@ -114,17 +114,17 @@ jobs:
       - uses: ros-tooling/setup-ros@v0.7
         with:
           required-ros-distributions: jazzy
+      # griff_policy is deliberately not in this list: it imports `griff`, which
+      # needs torch and MuJoCo in the ROS Python environment. Installing a
+      # training stack into a ROS job to check two nodes is not a trade worth
+      # making; they are linted and type-checked by the `test` job above.
+      #
+      # `colcon test` here runs one thing: the gtest in griff_control, which
+      # asserts the same force bound as the Python suite against the same wall
+      # model. The ament style linters are not enabled -- see the note in
+      # ros2_ws/src/griff_control/CMakeLists.txt.
       - uses: ros-tooling/action-ros-ci@v0.4
         with:
           package-name: griff_msgs griff_description griff_control griff_bringup
           target-ros2-distro: jazzy
           vcs-repo-file-url: ""
-          # griff_policy is deliberately excluded: it imports `griff`, which
-          # needs torch and mujoco in the ROS Python environment. Installing a
-          # training stack into a ROS CI job to lint two nodes is not a trade
-          # worth making; those nodes are checked by ruff in the `test` job.
-          colcon-defaults: |
-            {
-              "build": { "base-paths": ["ros2_ws/src"] },
-              "test": { "base-paths": ["ros2_ws/src"] }
-            }
