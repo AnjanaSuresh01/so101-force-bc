@@ -9,12 +9,24 @@ reaches the arm. What reaches the arm is:
                        |
                        admittance + reference governor, on the force estimate
                        |
+                       lead cap, on where the arm measurably is
+                       |
                        admissible tool target  --IK-->  q_command
 
 Because the guard re-derives the joint command from a Cartesian reference it has
 authority over, a policy that predicts a joint configuration 5 cm inside the
 fixture cannot express it. The one thing that passes through untouched is the
 gripper, which has no contact authority in these tasks.
+
+Two of those three stages act on the *reference* and one acts on the arm, and
+the difference is the whole lesson of `_limit_lead`. Against an arm that is
+where it was told to be, the admittance and the governor bound force exactly.
+Against a real one they do not, because a wedged arm lags its command by
+centimetres and keeps pressing from a command issued ticks ago -- a state in
+which the governor sees a reference retreating and correctly declines to act
+while the true force climbs past three times the limit. The lead cap is the
+stage that catches that, and it is a constraint between two positions rather
+than a reaction to a force.
 
 The cost is real and is measured rather than waved at: an IK solve per control
 tick, and the loss of any tool orientation the policy asked for beyond pitch --
