@@ -1,0 +1,161 @@
+<!--
+  SO-101 follower arm.
+
+  Kinematic topology and joint set match the SO-101: shoulder_pan, shoulder_lift,
+  elbow_flex, wrist_flex, wrist_roll and a gripper jaw - six actuated STS3215
+  servos, five of which are arm degrees of freedom. Link lengths follow the
+  published SO-101 dimensions; the collision geometry is capsule/box primitives
+  rather than the vendor meshes, so this is a kinematically faithful stand-in,
+  not a visual replica.
+
+  Actuator limits are the STS3215's: 2.94 N.m stall torque at 12 V (30 kgf.cm).
+  That number is load-bearing for this project - with the workpiece ~0.19 m from
+  the shoulder it caps the reachable contact force near 15 N, which is the same
+  order as the force that damages a 3D-printed workpiece. The arm can hurt the
+  part it is assembling, which is the whole reason the admittance bound exists.
+
+  The <force>/<torque> sensors at the tool mount are SIMULATOR GROUND TRUTH. The
+  real SO-101 has no wrist F/T sensor. Policies and the controller only ever see
+  griff.sensing.ContactForceEstimator, which uses joint angles and servo load -
+  the two things an STS3215 actually reports. The ground-truth sensor exists so
+  that estimator error can be measured instead of assumed.
+-->
+<mujocoinclude>
+  <compiler angle="radian" autolimits="true"/>
+
+  <!-- 600 Hz physics, 20 substeps per 30 Hz control tick: the control rate is
+       the SO-101's teleoperation rate and the dataset's fps, and it divides the
+       physics rate exactly so no frame straddles a substep. -->
+  <option timestep="0.00166666667" integrator="implicitfast" cone="elliptic" impratio="10"
+          gravity="0 0 -9.81"/>
+
+  <visual>
+    <global offwidth="640" offheight="480"/>
+    <quality shadowsize="2048"/>
+  </visual>
+
+  <default>
+    <default class="so101">
+      <!-- armature is the STS3215's reflected rotor inertia through its gearbox;
+           without it the position servos ring at the 500 Hz physics rate. -->
+      <joint damping="0.6" armature="0.028" frictionloss="0.015"/>
+      <position kp="34" kv="1.8" forcerange="-2.94 2.94"/>
+      <geom type="capsule" size="0.016" density="700" friction="0.8 0.01 0.001"
+            rgba="0.25 0.27 0.31 1" condim="4" solref="0.008 1" solimp="0.95 0.99 0.001"/>
+      <default class="so101_visual">
+        <geom contype="0" conaffinity="0" group="2" density="0"/>
+      </default>
+    </default>
+  </default>
+
+  <asset>
+    <texture name="grid" type="2d" builtin="checker" rgb1="0.22 0.24 0.27" rgb2="0.28 0.30 0.34"
+             width="300" height="300"/>
+    <material name="grid" texture="grid" texrepeat="8 8" reflectance="0.05"/>
+    <material name="bench" rgba="0.72 0.70 0.66 1" reflectance="0.02"/>
+    <material name="steel" rgba="0.55 0.57 0.60 1" reflectance="0.15"/>
+    <material name="workpiece" rgba="0.83 0.44 0.20 1"/>
+    <material name="socket" rgba="0.30 0.42 0.62 1"/>
+  </asset>
+
+  <worldbody>
+    <light name="key" pos="0.35 -0.35 0.85" dir="-0.35 0.35 -0.85" diffuse="0.7 0.7 0.7"/>
+    <light name="fill" pos="-0.30 0.30 0.60" dir="0.30 -0.30 -0.60" diffuse="0.3 0.3 0.3"/>
+    <geom name="bench" type="plane" size="1 1 0.01" material="grid" condim="4"
+          friction="0.9 0.01 0.001"/>
+
+    <!-- Fixed overhead camera, looking down the +x working direction. -->
+    <camera name="top" pos="0.26 -0.42 0.40" xyaxes="0.86 0.51 0 -0.22 0.37 0.90"/>
+
+    <body name="base" pos="0 0 0">
+      <!-- No collision on the mount block. `base` is static, so MuJoCo merges it
+           into the world body - and the parent-child contact filter explicitly
+           does not apply when the parent is the world. Without this, the
+           shoulder capsule sits permanently 14 mm inside the base plate, the
+           solver fights a contact that can never separate, and shoulder_pan is
+           locked solid: the arm cannot turn, and the servo torque holding
+           against that contact reads out as several newtons of phantom
+           contact force at the tool. -->
+      <geom name="base_plate" type="box" size="0.045 0.045 0.018" pos="0 0 0.018"
+            class="so101" material="steel" contype="0" conaffinity="0"/>
+
+      <body name="shoulder" pos="0 0 0.0542">
+        <joint name="shoulder_pan" class="so101" axis="0 0 1" range="-1.92 1.92"/>
+        <geom name="shoulder_g" class="so101" fromto="0 0 -0.004 0 0 0.020" size="0.018"/>
+
+        <body name="upper_arm" pos="0 0 0.024">
+          <joint name="shoulder_lift" class="so101" axis="0 1 0" range="-1.75 1.75"/>
+          <geom name="upper_arm_g" class="so101" fromto="0 0 0 0 0 0.1159" size="0.017"/>
+
+          <body name="forearm" pos="0 0 0.1159">
+            <joint name="elbow_flex" class="so101" axis="0 1 0" range="-1.69 1.69"/>
+            <geom name="forearm_g" class="so101" fromto="0 0 0 0 0 0.1350" size="0.015"/>
+
+            <body name="wrist" pos="0 0 0.1350">
+              <!-- +/- 110 deg. This range is load-bearing, not cosmetic: because
+                   all three pitch joints share an axis, the tool's angle from
+                   vertical is exactly their sum, so pointing the tool straight
+                   down at an extended reach costs ~1.8 rad of wrist flex. At
+                   +/- 100 deg the arm cannot stand a peg vertically over a
+                   fixture at x = 0.19 m at all. -->
+              <joint name="wrist_flex" class="so101" axis="0 1 0" range="-1.92 1.92"/>
+              <geom name="wrist_g" class="so101" fromto="0 0 0 0 0 0.0400" size="0.014"/>
+
+              <body name="wrist_roll_link" pos="0 0 0.0400">
+                <joint name="wrist_roll" class="so101" axis="0 0 1" range="-2.79 2.79"/>
+                <geom name="wrist_roll_g" class="so101" fromto="0 0 0 0 0 0.0140" size="0.013"/>
+
+                <!-- Everything distal to this joint is what the wrist F/T sensor
+                     sees: the tool mount, the jaws, and whatever is grasped. -->
+                <body name="tool" pos="0 0 0.0240">
+                  <site name="tool_ft" pos="0 0 0" size="0.004" rgba="1 0 0 0.4"/>
+                  <!-- The tool mount and jaws carry mass but no collision. The
+                       grasp is the weld in each task scene, so letting the jaws
+                       also collide with the thing they are notionally holding
+                       adds nothing but an artefact: the jaw actuator squeezes
+                       the peg, the compliant weld resists, and the resulting
+                       internal loop shows up at the joints as several newtons
+                       of contact force that no camera and no fixture explains. -->
+                  <geom name="tool_mount" class="so101" type="box" size="0.014 0.010 0.010"
+                        pos="0 0 0" material="steel" contype="0" conaffinity="0"/>
+                  <site name="tool_center" pos="0 0 0.026" size="0.004" rgba="0 1 0 0.4"/>
+
+                  <!-- Wrist camera: looks along the tool axis, offset behind the
+                       jaws the way an SO-101 wrist cam is mounted. -->
+                  <camera name="wrist" pos="0 -0.052 0.008" xyaxes="1 0 0 0 0.42 0.91"/>
+
+                  <body name="jaw_fixed" pos="0.011 0 0.020">
+                    <geom name="jaw_fixed_g" class="so101" type="box" size="0.004 0.009 0.020"
+                          material="steel" contype="0" conaffinity="0"/>
+                  </body>
+                  <body name="jaw_moving" pos="-0.011 0 0.020">
+                    <joint name="gripper" class="so101" type="slide" axis="1 0 0"
+                           range="-0.004 0.020" damping="4" armature="0.004"/>
+                    <geom name="jaw_moving_g" class="so101" type="box" size="0.004 0.009 0.020"
+                          material="steel" contype="0" conaffinity="0"/>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <position name="shoulder_pan" class="so101" joint="shoulder_pan" ctrlrange="-1.92 1.92"/>
+    <position name="shoulder_lift" class="so101" joint="shoulder_lift" ctrlrange="-1.75 1.75"/>
+    <position name="elbow_flex" class="so101" joint="elbow_flex" ctrlrange="-1.69 1.69"/>
+    <position name="wrist_flex" class="so101" joint="wrist_flex" ctrlrange="-1.92 1.92"/>
+    <position name="wrist_roll" class="so101" joint="wrist_roll" ctrlrange="-2.79 2.79"/>
+    <position name="gripper" class="so101" joint="gripper" kp="120" kv="8"
+              ctrlrange="-0.004 0.020" forcerange="-25 25"/>
+  </actuator>
+
+  <sensor>
+    <!-- Ground truth only. Never fed to a policy or to the controller. -->
+    <force name="gt_tool_force" site="tool_ft"/>
+    <torque name="gt_tool_torque" site="tool_ft"/>
+  </sensor>
+</mujocoinclude>

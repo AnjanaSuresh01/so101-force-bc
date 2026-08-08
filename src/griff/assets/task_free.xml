@@ -1,0 +1,9 @@
+<!--
+  Bare arm, no workpiece. Used to calibrate the contact-force estimator's
+  gravity/friction bias term the same way you would on the real robot: move
+  through free space, record what the servos report with nothing touching the
+  tool, and treat that as the zero.
+-->
+<mujoco model="so101_free">
+  <include file="so101_arm.xml"/>
+</mujoco>

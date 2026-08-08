@@ -1,0 +1,11 @@
+<library path="griff_control">
+  <class name="griff_control/ForceLimitedAdmittanceController"
+         type="griff_control::ForceLimitedAdmittanceController"
+         base_class_type="controller_interface::ControllerInterface">
+    <description>
+      Runs a learned policy's joint command through Cartesian admittance and a
+      force-limited reference governor before it reaches the arm, so the
+      commanded contact force is bounded whatever the policy predicts.
+    </description>
+  </class>
+</library>

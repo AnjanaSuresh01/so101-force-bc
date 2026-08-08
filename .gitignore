@@ -1,0 +1,28 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Training artefacts. Checkpoints are large and reproducible from the committed
+# configs and seeds; the metrics they produce are committed instead.
+runs/
+
+# Recorded episodes. `datasets/demo-*` is committed -- it is what CI trains its
+# smoke test on. The full 60-episode datasets are 1.2 GB of PNGs and are
+# regenerated from seed with `griff record`. Point GRIFF_DATASETS somewhere
+# outside a cloud-synced folder before you do; see src/griff/paths.py.
+datasets/*
+!datasets/demo-*/
+datasets/demo-*/cache/
+
+# ROS 2 build output
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/

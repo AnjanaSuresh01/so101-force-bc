@@ -1,0 +1,62 @@
+<!--
+  Task 3 - force-limited assembly (press fit).
+
+  A part is pressed into a socket against a spring-loaded retainer. The retainer
+  travels 14 mm and then hits a rigid stop. This gives the task a force WINDOW
+  rather than a force ceiling:
+
+    * below the seating force (k * 0.0125, ~7-10 N depending on the episode) the
+      part never seats and the run fails on the success criterion;
+    * above the overload threshold the retainer has bottomed out and the load is
+      going straight into the workpiece, so the run fails on the force criterion
+      even when the part is seated.
+
+  Retainer stiffness is randomised +/- 20% per episode. Nothing in either camera
+  view reveals it - the springs are inside the socket. This is the cleanest of
+  the three ablations: the required force is, by construction, only observable
+  through the force channel.
+-->
+<mujoco model="so101_press_fit">
+  <include file="so101_arm.xml"/>
+
+  <worldbody>
+    <body name="socket" pos="0.190 0 0">
+      <geom name="soc_base" type="box" size="0.032 0.032 0.008" pos="0 0 0.008"
+            material="socket" friction="0.8 0.01 0.001" condim="4"/>
+      <!-- Guide walls: 30 mm square opening around a 24 mm part. -->
+      <geom name="soc_wall_xp" type="box" size="0.006 0.021 0.017" pos="0.021 0 0.033"
+            material="socket" friction="0.3 0.01 0.001" condim="4"/>
+      <geom name="soc_wall_xn" type="box" size="0.006 0.021 0.017" pos="-0.021 0 0.033"
+            material="socket" friction="0.3 0.01 0.001" condim="4"/>
+      <geom name="soc_wall_yp" type="box" size="0.027 0.006 0.017" pos="0 0.021 0.033"
+            material="socket" friction="0.3 0.01 0.001" condim="4"/>
+      <geom name="soc_wall_yn" type="box" size="0.027 0.006 0.017" pos="0 -0.021 0.033"
+            material="socket" friction="0.3 0.01 0.001" condim="4"/>
+
+      <body name="retainer" pos="0 0 0.044">
+        <!-- Spring-loaded, 14 mm of travel, then a rigid stop. Stiffness is
+             overwritten per episode by the task randomiser. -->
+        <joint name="retainer_slide" type="slide" axis="0 0 1" range="-0.014 0"
+               stiffness="700" damping="3.0" armature="0.0006" frictionloss="0.05"
+               solreflimit="0.002 1" solimplimit="0.99 0.9995 0.001"/>
+        <geom name="retainer_g" type="cylinder" size="0.015 0.005" material="steel"
+              friction="0.6 0.01 0.001" condim="4"
+              solref="0.004 1" solimp="0.97 0.999 0.001"/>
+        <site name="retainer_face" pos="0 0 0.005" size="0.003" rgba="0 1 0 0.4"/>
+      </body>
+    </body>
+
+    <body name="part" pos="0.190 0 0.30">
+      <freejoint name="part_free"/>
+      <geom name="part_g" type="cylinder" size="0.012 0.016" material="workpiece"
+            friction="0.5 0.01 0.001" condim="4" density="900"
+            solref="0.005 1" solimp="0.96 0.999 0.001"/>
+      <site name="part_face" pos="0 0 0.016" size="0.003" rgba="1 1 0 0.5"/>
+    </body>
+  </worldbody>
+
+  <equality>
+    <weld name="grasp" body1="tool" body2="part" relpose="0 0 0.054 1 0 0 0"
+          solref="0.002 1" solimp="0.98 0.999 0.001"/>
+  </equality>
+</mujoco>

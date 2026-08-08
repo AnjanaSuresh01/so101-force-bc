@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+<!--
+  MoveIt semantics for the SO-101.
+
+  The `arm` group is the five joints that move the tool. The gripper is not in
+  it: including a jaw in a planning group makes MoveIt plan grasp width as if it
+  were a Cartesian degree of freedom, and this arm has few enough of those.
+
+  Note what the group can and cannot do. Five joints, one of which (wrist_roll)
+  spins about the tool axis, means the reachable task space is position plus
+  tool pitch - four constraints. Asking MoveIt for a full 6-DoF pose goal will
+  usually fail, and when it succeeds it has found a pose that happened to be
+  compatible. Plan for position and a pitch constraint instead; see
+  griff.kinematics for the same argument in the simulation stack.
+-->
+<robot name="so101">
+  <group name="arm">
+    <joint name="shoulder_pan"/>
+    <joint name="shoulder_lift"/>
+    <joint name="elbow_flex"/>
+    <joint name="wrist_flex"/>
+    <joint name="wrist_roll"/>
+  </group>
+
+  <group name="gripper">
+    <joint name="gripper"/>
+  </group>
+
+  <end_effector name="tool" parent_link="tool_centre" group="gripper" parent_group="arm"/>
+
+  <group_state name="home" group="arm">
+    <joint name="shoulder_pan" value="0.0"/>
+    <joint name="shoulder_lift" value="0.55"/>
+    <joint name="elbow_flex" value="0.90"/>
+    <joint name="wrist_flex" value="1.05"/>
+    <joint name="wrist_roll" value="0.0"/>
+  </group_state>
+
+  <group_state name="approach" group="arm">
+    <!-- Tool vertical over the bench fixtures, ~0.11 m above them. This is the
+         pose every task in this repo starts from. -->
+    <joint name="shoulder_pan" value="0.0"/>
+    <joint name="shoulder_lift" value="0.69"/>
+    <joint name="elbow_flex" value="0.63"/>
+    <joint name="wrist_flex" value="1.82"/>
+    <joint name="wrist_roll" value="0.0"/>
+  </group_state>
+
+  <group_state name="open" group="gripper">
+    <joint name="gripper" value="0.016"/>
+  </group_state>
+  <group_state name="closed" group="gripper">
+    <joint name="gripper" value="0.002"/>
+  </group_state>
+
+  <virtual_joint name="fixed_base" type="fixed" parent_frame="world" child_link="base_link"/>
+
+  <disable_collisions link1="base_link" link2="shoulder_link" reason="Adjacent"/>
+  <disable_collisions link1="shoulder_link" link2="upper_arm_link" reason="Adjacent"/>
+  <disable_collisions link1="upper_arm_link" link2="forearm_link" reason="Adjacent"/>
+  <disable_collisions link1="forearm_link" link2="wrist_link" reason="Adjacent"/>
+  <disable_collisions link1="wrist_link" link2="wrist_roll_link" reason="Adjacent"/>
+  <disable_collisions link1="wrist_roll_link" link2="tool_link" reason="Adjacent"/>
+  <disable_collisions link1="tool_link" link2="gripper_jaw" reason="Adjacent"/>
+  <disable_collisions link1="base_link" link2="upper_arm_link" reason="Never"/>
+  <disable_collisions link1="shoulder_link" link2="forearm_link" reason="Never"/>
+</robot>

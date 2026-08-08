@@ -1,0 +1,49 @@
+controller_manager:
+  ros__parameters:
+    # Matches the 30 Hz the policies were trained at and the force estimate
+    # arrives at. Running the guard faster than the force it reacts to gains
+    # nothing and makes the stiffness estimator differentiate noise.
+    update_rate: 30
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    force_limited_admittance_controller:
+      type: griff_control/ForceLimitedAdmittanceController
+
+joint_state_broadcaster:
+  ros__parameters:
+    # effort carries STS3215 present-load. The force estimator needs it; without
+    # it there is no force signal anywhere in this stack.
+    interfaces:
+      - position
+      - velocity
+      - effort
+
+force_limited_admittance_controller:
+  ros__parameters:
+    joints:
+      - shoulder_pan
+      - shoulder_lift
+      - elbow_flex
+      - wrist_flex
+      - wrist_roll
+      - gripper
+    base_link: base_link
+    tool_link: tool_centre
+    policy_command_topic: /griff/policy_command
+    contact_force_topic: /griff/contact_force
+    ik_damping: 0.06
+    command_timeout: 0.5
+    admittance:
+      mass: 1.2
+      damping: 45.0
+      stiffness: 250.0
+      force_limit: 6.0
+      deadband: 0.35
+      max_offset: 0.035
+      max_step: 0.006
+      stiffness_prior: 4000.0
+      stiffness_min: 250.0
+      stiffness_max: 80000.0
+      stiffness_smoothing: 0.35

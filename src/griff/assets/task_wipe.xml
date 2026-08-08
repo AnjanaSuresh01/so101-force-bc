@@ -1,0 +1,55 @@
+<!--
+  Task 2 - surface wiping.
+
+  Sweep a compliant pad across a plate, keeping the normal force inside a band
+  while covering the full stroke. The plate is TILTED by a random +/- 4 degrees
+  about both horizontal axes every episode.
+
+  That tilt is the experiment. Over a 90 mm stroke, 4 degrees is 6 mm of height
+  change - enough to lift the pad clear of the surface at one end or bury it at
+  the other. At 96x96 from an overhead camera a 4 degree tilt is a couple of
+  pixels of foreshortening. A policy that only sees pixels has to guess the
+  plane; a policy that feels the normal force can servo on it.
+
+  The pad is deliberately soft (solref 0.02) - a sponge, not a rigid puck. Soft
+  contact turns the force channel into a usable proxy for penetration depth
+  instead of an on/off spike, which is what makes force conditioning learnable
+  at all at 30 Hz.
+-->
+<mujoco model="so101_wipe">
+  <include file="so101_arm.xml"/>
+
+  <worldbody>
+    <!--
+      The stroke runs along y, not x, and that is a reachability decision rather
+      than an aesthetic one. Sweeping 80 mm radially with the tool held vertical
+      puts the elbow hard against its 1.69 rad limit at the near end of the
+      stroke: the IK stops converging, the reference freezes, and the pad never
+      touches the plate at all. A lateral stroke is a pure shoulder_pan rotation
+      at constant radius, so every point on it is equally reachable - which is
+      also how anyone would orient this job on a real SO-101.
+    -->
+    <body name="plate" pos="0.200 0 0.030">
+      <geom name="plate_top" type="box" size="0.055 0.070 0.008" pos="0 0 0"
+            material="socket" friction="0.5 0.01 0.001" condim="4"
+            solref="0.004 1" solimp="0.97 0.999 0.001"/>
+      <geom name="plate_post" type="box" size="0.020 0.020 0.011" pos="0 0 -0.019"
+            material="steel" friction="0.9 0.01 0.001" condim="4"/>
+      <site name="wipe_start" pos="0 -0.048 0.008" size="0.003" rgba="0 1 0 0.4"/>
+      <site name="wipe_end" pos="0 0.048 0.008" size="0.003" rgba="1 0 0 0.4"/>
+    </body>
+
+    <body name="pad" pos="0.200 0 0.30">
+      <freejoint name="pad_free"/>
+      <geom name="pad_g" type="cylinder" size="0.016 0.010" material="workpiece"
+            friction="0.6 0.02 0.001" condim="4" density="300"
+            solref="0.02 1" solimp="0.75 0.92 0.004"/>
+      <site name="pad_face" pos="0 0 0.010" size="0.003" rgba="1 1 0 0.5"/>
+    </body>
+  </worldbody>
+
+  <equality>
+    <weld name="grasp" body1="tool" body2="pad" relpose="0 0 0.050 1 0 0 0"
+          solref="0.002 1" solimp="0.98 0.999 0.001"/>
+  </equality>
+</mujoco>

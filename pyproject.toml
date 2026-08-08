@@ -1,0 +1,86 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "griff"
+version = "0.1.0"
+description = "Contact-rich behaviour cloning on an SO-101 arm: force-conditioned ACT and Diffusion Policy, a force-limited admittance controller, and an evaluation harness that counts over-force successes as failures"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Anjana Suresh", email = "anjanas222001@gmail.com" }]
+keywords = [
+  "robot-learning", "behaviour-cloning", "imitation-learning", "so-101",
+  "lerobot", "act", "diffusion-policy", "admittance-control", "mujoco",
+  "ros2", "moveit2", "contact-rich-manipulation", "force-control",
+]
+classifiers = [
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "License :: OSI Approved :: MIT License",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+# Kept deliberately small. torch is the only heavy dependency; the dataset layer
+# writes the LeRobot v2.1 layout with pyarrow directly rather than pulling in
+# lerobot, which would drag in a second copy of the training stack.
+dependencies = [
+  "mujoco>=3.2",
+  "numpy>=1.26",
+  "pandas>=2.2",
+  "pillow>=10.4",
+  "pyarrow>=17",
+  "torch>=2.4",
+  "typer>=0.15",
+]
+
+[project.optional-dependencies]
+plot = ["matplotlib>=3.9"]
+dev = [
+  "matplotlib>=3.9",
+  "mypy>=1.13",
+  "pytest>=8.3",
+  "pytest-cov>=6.0",
+  "ruff>=0.8",
+]
+all = ["griff[plot,dev]"]
+
+[project.scripts]
+griff = "griff.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/AnjanaSuresh01/so101-force-bc"
+Issues = "https://github.com/AnjanaSuresh01/so101-force-bc/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["griff*"]
+
+[tool.setuptools.package-data]
+griff = ["py.typed", "assets/*.xml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+filterwarnings = [
+  "ignore::DeprecationWarning",
+  # torch: norm_first=True disables the nested-tensor fast path. Deliberate.
+  "ignore:enable_nested_tensor is True:UserWarning",
+]
+markers = ["slow: exercises a full training or rollout loop"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4"]
+ignore = ["E501", "B008"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_ignores = false

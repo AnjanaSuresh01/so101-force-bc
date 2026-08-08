@@ -1,0 +1,41 @@
+# Defaults for the force-limited admittance controller.
+#
+# These mirror griff.control.admittance.AdmittanceConfig. The force_limit here
+# is the peg-insertion value; the other two tasks use their own (see
+# griff.sim.tasks.TaskSpec.force_limit) and each is set below that task's
+# overload threshold so the guard has margin to work in.
+
+force_limited_admittance_controller:
+  ros__parameters:
+    joints:
+      - shoulder_pan
+      - shoulder_lift
+      - elbow_flex
+      - wrist_flex
+      - wrist_roll
+      - gripper
+
+    base_link: base_link
+    tool_link: tool_centre
+    policy_command_topic: /griff/policy_command
+    contact_force_topic: /griff/contact_force
+
+    # Damped least squares, not a plain pseudo-inverse: the arm passes through a
+    # shoulder singularity at the reach the fixtures sit at.
+    ik_damping: 0.06
+
+    # A policy that stops publishing has crashed. Hold, and say so.
+    command_timeout: 0.5
+
+    admittance:
+      mass: 1.2
+      damping: 45.0
+      stiffness: 250.0
+      force_limit: 6.0
+      deadband: 0.35
+      max_offset: 0.035
+      max_step: 0.006
+      stiffness_prior: 4000.0
+      stiffness_min: 250.0
+      stiffness_max: 80000.0
+      stiffness_smoothing: 0.35

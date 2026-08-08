@@ -1,0 +1,72 @@
+<!--
+  Task 1 - peg insertion.
+
+  A 17 mm peg into a 20 mm square hole: 1.5 mm radial clearance. The fixture is
+  re-placed every episode, and the offset is split deliberately:
+
+    * a COARSE offset of +/- 12 mm, which is ~4 px at the 96x96 policy input and
+      is therefore visible, and
+    * a FINE offset of +/- 3 mm, which is about one pixel and is not.
+
+  The fine term is what makes this a force task. Vision gets you to the lip;
+  what tells you the peg is jammed against the chamfer rather than sliding down
+  the bore is the contact force, and at the moment it matters the wrist camera
+  is looking at the top face of the fixture with the peg hidden inside it.
+
+  The peg is rigidly held: a weld between the tool body and a free-floating peg.
+  Grasping is not the object of study here, and a weld with a stiff solref is a
+  closer model of a peg clamped in printed jaws than a friction grasp that would
+  spend the episode slipping.
+-->
+<mujoco model="so101_peg_insert">
+  <include file="so101_arm.xml"/>
+
+  <worldbody>
+    <body name="fixture" pos="0.190 0 0">
+      <geom name="fix_base" type="box" size="0.030 0.030 0.006" pos="0 0 0.006"
+            material="socket" friction="0.7 0.01 0.001" condim="4"/>
+      <!-- Bore: four walls around a 20 mm square opening, 36 mm deep. The depth
+           is set by reach, not by taste - see the wrist_flex comment in the arm
+           model. A taller fixture cannot be approached with the peg vertical. -->
+      <geom name="fix_wall_xp" type="box" size="0.0075 0.0175 0.018" pos="0.0175 0 0.030"
+            material="socket" friction="0.35 0.01 0.001" condim="4"/>
+      <geom name="fix_wall_xn" type="box" size="0.0075 0.0175 0.018" pos="-0.0175 0 0.030"
+            material="socket" friction="0.35 0.01 0.001" condim="4"/>
+      <geom name="fix_wall_yp" type="box" size="0.025 0.0075 0.018" pos="0 0.0175 0.030"
+            material="socket" friction="0.35 0.01 0.001" condim="4"/>
+      <geom name="fix_wall_yn" type="box" size="0.025 0.0075 0.018" pos="0 -0.0175 0.030"
+            material="socket" friction="0.35 0.01 0.001" condim="4"/>
+      <!-- Entry lip: a coarse funnel, 28 mm opening tapering onto the 20 mm bore.
+           Without it the task is a needle-threading exercise that no 30 Hz
+           behaviour-cloning policy solves; with it, alignment is recoverable by
+           sliding along the lip, which is exactly the contact event the force
+           channel is supposed to report. -->
+      <geom name="fix_lip_xp" type="box" size="0.006 0.020 0.004" pos="0.020 0 0.052"
+            euler="0 -0.5 0" material="socket" friction="0.3 0.01 0.001" condim="4"/>
+      <geom name="fix_lip_xn" type="box" size="0.006 0.020 0.004" pos="-0.020 0 0.052"
+            euler="0 0.5 0" material="socket" friction="0.3 0.01 0.001" condim="4"/>
+      <geom name="fix_lip_yp" type="box" size="0.020 0.006 0.004" pos="0 0.020 0.052"
+            euler="0.5 0 0" material="socket" friction="0.3 0.01 0.001" condim="4"/>
+      <geom name="fix_lip_yn" type="box" size="0.020 0.006 0.004" pos="0 -0.020 0.052"
+            euler="-0.5 0 0" material="socket" friction="0.3 0.01 0.001" condim="4"/>
+      <site name="hole_axis" pos="0 0 0.048" size="0.003" rgba="0 1 0 0.3"/>
+    </body>
+
+    <body name="peg" pos="0.190 0 0.30">
+      <freejoint name="peg_free"/>
+      <geom name="peg_g" type="cylinder" size="0.0085 0.030" material="workpiece"
+            friction="0.35 0.01 0.001" condim="4" density="1200"
+            solref="0.006 1" solimp="0.96 0.995 0.001"/>
+      <!-- The far end of the peg. Its local +z runs along the tool axis, so the
+           protruding end is at +half-length, not -half-length. -->
+      <site name="peg_tip" pos="0 0 0.030" size="0.003" rgba="1 1 0 0.5"/>
+    </body>
+  </worldbody>
+
+  <equality>
+    <!-- Grasp. relpose centres the peg 44 mm out along the tool axis: 26 mm of
+         it sits between the jaws and 34 mm protrudes past their tips. -->
+    <weld name="grasp" body1="tool" body2="peg" relpose="0 0 0.044 1 0 0 0"
+          solref="0.002 1" solimp="0.98 0.999 0.001"/>
+  </equality>
+</mujoco>
