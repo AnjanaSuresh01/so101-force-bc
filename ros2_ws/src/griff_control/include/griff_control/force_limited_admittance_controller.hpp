@@ -74,7 +74,6 @@ private:
   std::string base_link_;
   std::string tool_link_;
   double ik_damping_{0.06};
-  bool passthrough_on_stale_command_{false};
   double command_timeout_{0.5};
 
   AdmittanceParameters admittance_parameters_;

@@ -30,7 +30,11 @@ jobs:
       - name: Lint
         run: ruff check src tests
 
+      # Types are a property of the code, not of the interpreter checking it, so
+      # this runs once rather than three times. It also has to: see the note on
+      # `python_version` in pyproject.toml.
       - name: Types
+        if: matrix.python == '3.13'
         run: mypy src/griff
 
       # No test renders. The environments are constructed with cameras=() so the

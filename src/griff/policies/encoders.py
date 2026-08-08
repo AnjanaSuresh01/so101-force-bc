@@ -50,6 +50,12 @@ class SpatialSoftmax(nn.Module):
 class VisionTrunk(nn.Module):
     """Strided conv stack shared in architecture (not weights) by both cameras."""
 
+    # Declared at class level for the same reason as the buffers above:
+    # nn.Module.__getattr__ is typed as returning `Tensor | Module`, so a plain
+    # int assigned in __init__ reads back as that union everywhere it is used.
+    out_size: int
+    out_channels: int
+
     def __init__(self, channels: tuple[int, ...], image_size: int) -> None:
         super().__init__()
         layers: list[nn.Module] = []
@@ -85,27 +91,27 @@ class ObservationEncoder(nn.Module):
     def __init__(self, config: PolicyConfig) -> None:
         super().__init__()
         self.config = config
-        self.trunks = nn.ModuleDict(
-            {
-                camera: VisionTrunk(config.vision_channels, config.image_size)
-                for camera in config.cameras
-            }
-        )
-        trunk = next(iter(self.trunks.values()))
+        # The trunks' output geometry is read off a plain dict before it is
+        # wrapped. nn.ModuleDict.values() yields the base Module type, so
+        # anything read back through it -- including an int assigned in
+        # __init__ -- widens to `Tensor | Module` and every downstream use of it
+        # stops type-checking.
+        trunks = {
+            camera: VisionTrunk(config.vision_channels, config.image_size)
+            for camera in config.cameras
+        }
+        sample = next(iter(trunks.values()))
+        channels, feature_size = sample.out_channels, sample.out_size
+        self.trunks = nn.ModuleDict(trunks)
+
         self.grid = int(round(config.tokens_per_camera**0.5))
         self.pool = nn.AdaptiveAvgPool2d(self.grid)
         self.token_proj = nn.ModuleDict(
-            {
-                camera: nn.Linear(trunk.out_channels, config.hidden_dim)
-                for camera in config.cameras
-            }
+            {camera: nn.Linear(channels, config.hidden_dim) for camera in config.cameras}
         )
-        self.keypoints = SpatialSoftmax(trunk.out_size, trunk.out_size)
+        self.keypoints = SpatialSoftmax(feature_size, feature_size)
         self.keypoint_proj = nn.ModuleDict(
-            {
-                camera: nn.Linear(2 * trunk.out_channels, config.hidden_dim)
-                for camera in config.cameras
-            }
+            {camera: nn.Linear(2 * channels, config.hidden_dim) for camera in config.cameras}
         )
         self.state_proj = nn.Sequential(
             nn.Linear(config.state_dim, config.hidden_dim),

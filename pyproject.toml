@@ -81,6 +81,11 @@ select = ["E", "F", "I", "UP", "B", "SIM", "C4"]
 ignore = ["E501", "B008"]
 
 [tool.mypy]
-python_version = "3.11"
+# No `python_version` pin. numpy's stubs use PEP 695 `type` statements, which
+# mypy refuses to parse when told to target 3.11 -- it fails inside
+# numpy/__init__.pyi before reaching any of this code. Letting mypy assume the
+# interpreter it runs under keeps the check working, and CI runs it on the
+# newest Python in the matrix. Runtime support for 3.11 is covered by the tests,
+# which do run on all three.
 ignore_missing_imports = true
 warn_unused_ignores = false

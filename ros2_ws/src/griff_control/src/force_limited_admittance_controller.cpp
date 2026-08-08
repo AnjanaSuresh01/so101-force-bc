@@ -181,10 +181,11 @@ controller_interface::CallbackReturn ForceLimitedAdmittanceController::on_config
 
 void ForceLimitedAdmittanceController::read_state()
 {
+  // Jazzy's LoanedStateInterface::get_value() returns a plain double. The
+  // std::optional-returning get_optional() is a later (Kilted) API and does not
+  // exist here.
   for (std::size_t index = 0; index < joint_names_.size(); ++index) {
-    measured_positions_(static_cast<Eigen::Index>(index)) =
-      state_interfaces_[index].get_optional().value_or(
-      measured_positions_(static_cast<Eigen::Index>(index)));
+    measured_positions_(static_cast<Eigen::Index>(index)) = state_interfaces_[index].get_value();
   }
 }
 
@@ -311,15 +312,10 @@ controller_interface::return_type ForceLimitedAdmittanceController::update(
       requested(i) + joint_delta(i), lower_limits_[index], upper_limits_[index]);
   }
 
+  // Jazzy's LoanedCommandInterface::set_value() returns void; the bool-returning
+  // form is a later API.
   for (std::size_t index = 0; index < joint_names_.size(); ++index) {
-    if (!command_interfaces_[index].set_value(
-        commanded_positions_(static_cast<Eigen::Index>(index))))
-    {
-      RCLCPP_ERROR_THROTTLE(
-        get_node()->get_logger(), *get_node()->get_clock(), 1000,
-        "could not write the command for joint '%s'", joint_names_[index].c_str());
-      return controller_interface::return_type::ERROR;
-    }
+    command_interfaces_[index].set_value(commanded_positions_(static_cast<Eigen::Index>(index)));
   }
 
   if (status_publisher_ && status_publisher_->trylock()) {
