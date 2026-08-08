@@ -47,6 +47,14 @@ class TaskSpec:
     #: Force limit handed to the admittance controller for this task. Below the
     #: overload threshold, so the controller has margin to work in.
     force_limit: float = 6.0
+    #: Virtual spring stiffness of the admittance, N/m. This does NOT set the
+    #: force bound -- the reference governor does that -- but it decides how much
+    #: of the policy's positional authority the compliance consumes, because the
+    #: steady-state offset is F / K_a. A task that must *sustain* force needs a
+    #: stiff virtual spring or the compliance simply undoes the press: at
+    #: K_a = 250 N/m the scripted operator seats the press-fit part 0/6 times,
+    #: at 2200 N/m it seats it 6/6, and the governor fires in neither case.
+    admittance_stiffness: float = 250.0
     #: Where the workpiece nominally sits, before per-episode randomisation.
     #: Set by reach, not by convenience: with the tool vertical the SO-101 can
     #: hold a point about 0.24 m out, and the wipe stroke alone spans 80 mm.
@@ -79,6 +87,8 @@ WIPE = TaskSpec(
     workpiece_xy=(0.200, 0.0),
     overload_force=10.0,
     force_limit=7.0,
+    # Sustains 2-6 N for the whole stroke.
+    admittance_stiffness=900.0,
     metrics=("coverage", "in_band_fraction"),
 )
 
@@ -93,6 +103,8 @@ PRESS_FIT = TaskSpec(
     workpiece_xy=(0.190, 0.0),
     overload_force=14.0,
     force_limit=12.0,
+    # Has to hold 6-9 N against the retainer to seat at all.
+    admittance_stiffness=2200.0,
     metrics=("seat_depth_mm", "seating_force_n"),
 )
 

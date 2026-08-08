@@ -198,3 +198,64 @@ def test_step_rejects_wrong_shapes() -> None:
         controller.step(np.zeros(2), np.zeros(3))
     with pytest.raises(ValueError):
         controller.step(np.zeros(3), np.zeros(6))
+
+
+@pytest.mark.parametrize("stiffness", [250.0, 900.0, 2200.0, 6000.0])
+def test_the_bound_does_not_depend_on_the_compliance_stiffness(stiffness: float) -> None:
+    """K_a decides how much positional authority compliance costs, not the limit.
+
+    Tasks that must sustain force are given a stiff virtual spring (see
+    `TaskSpec.admittance_stiffness`), so it matters that raising it does not
+    quietly raise the force it settles at.
+    """
+    controller = AdmittanceController(AdmittanceConfig(stiffness=stiffness))
+    settled = press(controller, env_stiffness=2500.0)["force"][-60:]
+    limit = controller.config.force_limit + controller.config.deadband
+    assert settled.max() <= limit
+
+
+def test_compliance_axis_confines_the_offset_to_that_axis() -> None:
+    """Three-axis compliance also yields to friction, which opposes motion.
+
+    Measured, that cost the scripted operator every episode of the wiping task:
+    the offset grew backwards along the stroke and the pad lagged its reference
+    for the whole sweep, with the governor never firing.
+    """
+    axis = np.array([0.0, 0.0, 1.0])
+    controller = AdmittanceController()
+    controller.reset(np.zeros(3))
+    tangential = np.array([4.0, 0.0, 0.0])
+    for _ in range(120):
+        controller.step(np.zeros(3), tangential, compliance_axis=axis)
+    assert np.linalg.norm(controller.state.offset[:2]) < 1e-9
+
+    unconfined = AdmittanceController()
+    unconfined.reset(np.zeros(3))
+    for _ in range(120):
+        unconfined.step(np.zeros(3), tangential)
+    assert np.linalg.norm(unconfined.state.offset[:2]) > 1e-3
+
+
+def test_compliance_axis_still_yields_along_the_axis() -> None:
+    controller = AdmittanceController()
+    trace = press(controller, env_stiffness=2500.0)
+    confined = AdmittanceController()
+    confined.reset(np.array([0.0, 0.0, 0.030]))
+    force = np.zeros(3)
+    axis = np.array([0.0, 0.0, -1.0])  # tool pointing down
+    peak = 0.0
+    for i in range(400):
+        z = 0.030 + min(1.0, i / 199) * (-0.050 - 0.030)
+        reference = confined.step(np.array([0.0, 0.0, z]), force, compliance_axis=axis)
+        force = np.array([0.0, 0.0, 2500.0 * max(0.0, -reference[2])])
+        peak = max(peak, float(np.linalg.norm(force)))
+    assert peak <= 1.5 * confined.config.force_limit
+    assert abs(peak - trace["force"].max()) < 2.0
+
+
+def test_compliance_axis_must_be_a_unit_direction() -> None:
+    controller = AdmittanceController()
+    with pytest.raises(ValueError, match="non-zero 3-vector"):
+        controller.step(np.zeros(3), np.zeros(3), compliance_axis=np.zeros(3))
+    with pytest.raises(ValueError, match="non-zero 3-vector"):
+        controller.step(np.zeros(3), np.zeros(3), compliance_axis=np.zeros(2))

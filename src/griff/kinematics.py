@@ -91,6 +91,19 @@ def forward_kinematics(model: mujoco.MjModel, q: np.ndarray) -> tuple[np.ndarray
     return scratch.site_xpos[site_id(model)].copy(), tool_pitch(np.asarray(q, dtype=float))
 
 
+def tool_axis(model: mujoco.MjModel, q: np.ndarray) -> np.ndarray:
+    """Unit vector along the tool's own +z, in the base frame.
+
+    The direction the tool points, and therefore the direction in which it can
+    press something. `griff.control.guard` uses it to decide which axis the
+    admittance is allowed to yield in.
+    """
+    scratch = mujoco.MjData(model)
+    scratch.qpos[:6] = np.asarray(q, dtype=float)[:6]
+    mujoco.mj_kinematics(model, scratch)
+    return scratch.site_xmat[site_id(model)].reshape(3, 3)[:, 2].copy()
+
+
 def position_jacobian(model: mujoco.MjModel, data: mujoco.MjData) -> np.ndarray:
     """3 x 5 positional Jacobian of the tool point w.r.t. the arm joints."""
     jacp = np.zeros((3, model.nv))

@@ -29,7 +29,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from griff.control.admittance import AdmittanceConfig, AdmittanceController
-from griff.kinematics import forward_kinematics, solve_ik
+from griff.kinematics import forward_kinematics, solve_ik, tool_axis
 from griff.sim.env import TaskEnv
 
 
@@ -51,7 +51,10 @@ class ForceGuard:
     def __init__(self, env: TaskEnv, controller: AdmittanceController | None = None) -> None:
         self.env = env
         self.controller = controller or AdmittanceController(
-            AdmittanceConfig(force_limit=env.spec.force_limit)
+            AdmittanceConfig(
+                force_limit=env.spec.force_limit,
+                stiffness=env.spec.admittance_stiffness,
+            )
         )
         self.stats = GuardStats()
         self._last_q = env.joint_positions.copy()
@@ -65,7 +68,13 @@ class ForceGuard:
         env = self.env
         requested = np.asarray(joint_action, dtype=float)
         target, pitch = forward_kinematics(env.model, requested)
-        reference = self.controller.step(target, np.asarray(force, dtype=float))
+        # Comply along the tool axis only. That is the direction the peg, the pad
+        # and the part can all be crushed in, and it is the only direction where
+        # yielding is the right response. Yielding sideways means yielding to
+        # friction, which drags the arm backwards along whatever it is doing.
+        reference = self.controller.step(
+            target, np.asarray(force, dtype=float), compliance_axis=tool_axis(env.model, requested)
+        )
 
         result = solve_ik(env.model, env.data, reference, pitch, self._last_q)
         self.stats.ticks += 1

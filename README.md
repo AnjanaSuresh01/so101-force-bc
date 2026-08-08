@@ -146,6 +146,16 @@ Three mechanisms, and only one of them bounds anything:
    each tick's advance is capped at the distance predicted to consume the
    remaining force headroom.
 
+Compliance acts along the **tool axis only**, and that is not a refinement.
+Yielding in all three axes means yielding to friction, and friction opposes
+motion: with three-axis compliance the scripted operator scored 0/20 on the
+wiping task — dragged several millimetres behind its own reference for the whole
+stroke, with the governor firing on exactly zero ticks. The virtual spring's
+stiffness is per task for the same class of reason: at 250 N/m, holding the 9 N
+a press fit needs costs more offset than the controller has, and the part never
+seats. Neither changes the bound; both decide whether the arm can still do the
+job. [docs/admittance-bound.md](docs/admittance-bound.md) has the measurements.
+
 Measured: **settled force lands exactly on the limit at every environment
 stiffness from 400 to 60,000 N/m**, and the worst impact transient across that
 sweep is 1.51× the limit. First contact is an impact, and impact is set by

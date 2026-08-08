@@ -98,9 +98,23 @@ public:
     has_reference_ = true;
   }
 
-  /// One control cycle. `force` is what the environment exerts on the tool,
-  /// in the same frame as `policy_target`.
-  Eigen::Vector3d step(const Eigen::Vector3d & policy_target, const Eigen::Vector3d & force)
+  /// One control cycle.
+  ///
+  /// `force` is what the environment exerts on the tool, in the same frame as
+  /// `policy_target`. `compliance_axis`, when non-null, restricts the
+  /// compliance to one direction -- normally the tool axis, the one direction
+  /// in which these tasks can crush something. The force limit is unaffected
+  /// and stays three-dimensional.
+  ///
+  /// That split is not a refinement. Compliance in all three axes also yields
+  /// to friction, and friction opposes motion: during a wiping stroke the
+  /// offset grows backwards along the sweep and the tool lags its reference for
+  /// the whole traverse. Measured in simulation, three-axis compliance cost the
+  /// scripted operator every episode of the wiping task, with the governor
+  /// never once firing.
+  Eigen::Vector3d step(
+    const Eigen::Vector3d & policy_target, const Eigen::Vector3d & force,
+    const Eigen::Vector3d * compliance_axis = nullptr)
   {
     const auto & p = parameters_;
     const double magnitude = force.norm();
@@ -120,6 +134,14 @@ public:
     Eigen::Vector3d effective = Eigen::Vector3d::Zero();
     if (magnitude > p.deadband) {
       effective = force * ((magnitude - p.deadband) / magnitude);
+    }
+    if (compliance_axis != nullptr) {
+      const double axis_norm = compliance_axis->norm();
+      if (axis_norm < 1e-9) {
+        throw std::invalid_argument("compliance_axis must be a non-zero vector");
+      }
+      const Eigen::Vector3d axis = *compliance_axis / axis_norm;
+      effective = effective.dot(axis) * axis;
     }
 
     // Backward Euler on  M x'' + D x' + K x = -F, solved for the new velocity.

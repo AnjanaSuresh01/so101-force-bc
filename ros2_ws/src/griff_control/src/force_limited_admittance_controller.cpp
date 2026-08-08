@@ -220,6 +220,21 @@ Eigen::Vector3d ForceLimitedAdmittanceController::forward_kinematics(
   return Eigen::Vector3d(frame.p.x(), frame.p.y(), frame.p.z());
 }
 
+Eigen::Vector3d ForceLimitedAdmittanceController::tool_axis(
+  const Eigen::VectorXd & joints) const
+{
+  // The direction the tool points, and therefore the one direction in which it
+  // can press something. The admittance is allowed to yield along this and
+  // nowhere else -- yielding sideways means yielding to friction.
+  KDL::JntArray positions(static_cast<unsigned int>(arm_joints_));
+  for (std::size_t index = 0; index < arm_joints_; ++index) {
+    positions(static_cast<unsigned int>(index)) = joints(static_cast<Eigen::Index>(index));
+  }
+  KDL::Frame frame;
+  fk_solver_->JntToCart(positions, frame);
+  return Eigen::Vector3d(frame.M(0, 2), frame.M(1, 2), frame.M(2, 2));
+}
+
 Eigen::VectorXd ForceLimitedAdmittanceController::cartesian_to_joint_delta(
   const Eigen::VectorXd & joints, const Eigen::Vector3d & delta) const
 {
@@ -285,7 +300,8 @@ controller_interface::return_type ForceLimitedAdmittanceController::update(
   }
 
   const Eigen::Vector3d target = forward_kinematics(requested);
-  const Eigen::Vector3d reference = admittance_->step(target, force);
+  const Eigen::Vector3d axis = tool_axis(requested);
+  const Eigen::Vector3d reference = admittance_->step(target, force, &axis);
   const Eigen::VectorXd joint_delta = cartesian_to_joint_delta(requested, reference - target);
 
   commanded_positions_ = requested;

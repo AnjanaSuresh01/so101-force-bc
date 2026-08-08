@@ -133,6 +133,49 @@ TEST(AdmittanceCore, ContactReleaseReturnsTheOffsetToZero)
   EXPECT_LT(core.offset().norm(), 1e-4);
 }
 
+TEST(AdmittanceCore, ComplianceAxisConfinesTheOffsetToThatAxis)
+{
+  // Three-axis compliance also yields to friction, which opposes motion. The
+  // Python suite asserts the same property; see the note on step().
+  const Eigen::Vector3d axis(0.0, 0.0, 1.0);
+  const Eigen::Vector3d tangential(4.0, 0.0, 0.0);
+
+  griff_control::AdmittanceCore confined;
+  confined.reset(Eigen::Vector3d::Zero());
+  for (int i = 0; i < 120; ++i) {
+    confined.step(Eigen::Vector3d::Zero(), tangential, &axis);
+  }
+  EXPECT_LT(confined.offset().head<2>().norm(), 1e-9);
+
+  griff_control::AdmittanceCore unconfined;
+  unconfined.reset(Eigen::Vector3d::Zero());
+  for (int i = 0; i < 120; ++i) {
+    unconfined.step(Eigen::Vector3d::Zero(), tangential);
+  }
+  EXPECT_GT(unconfined.offset().head<2>().norm(), 1e-3);
+}
+
+TEST(AdmittanceCore, BoundDoesNotDependOnTheComplianceStiffness)
+{
+  // Tasks that must sustain force are given a stiff virtual spring, so it
+  // matters that raising it does not quietly raise the settled force.
+  for (const double stiffness : {250.0, 900.0, 2200.0, 6000.0}) {
+    griff_control::AdmittanceParameters parameters;
+    parameters.stiffness = stiffness;
+    griff_control::AdmittanceCore core(parameters);
+    const auto trace = press(core, 2500.0);
+    EXPECT_LE(settled_max(trace), parameters.force_limit + parameters.deadband)
+      << "compliance stiffness " << stiffness << " N/m";
+  }
+}
+
+TEST(AdmittanceCore, ComplianceAxisMustBeNonZero)
+{
+  griff_control::AdmittanceCore core;
+  const Eigen::Vector3d zero = Eigen::Vector3d::Zero();
+  EXPECT_THROW(core.step(zero, zero, &zero), std::invalid_argument);
+}
+
 TEST(AdmittanceCore, InvalidParametersAreRejected)
 {
   griff_control::AdmittanceParameters parameters;

@@ -83,6 +83,39 @@ produces:
 This is why the controller has three mechanisms and not one. Compliance softens
 contact; only the governor bounds it.
 
+## Two things the bound does not decide, and one that bit
+
+The governor decides the force limit. Two other choices decide whether the
+controller is *usable*, and getting them wrong looks nothing like a safety
+failure -- the arm simply stops doing the task, with the governor never firing.
+
+**Which axes comply.** Compliance in all three axes also yields to friction, and
+friction opposes motion. During a wiping stroke the offset grows backwards along
+the sweep and the pad lags its reference for the whole traverse. Measured: the
+scripted operator scored **0/20 on the wiping task** with three-axis compliance
+and **20/20 without the guard at all**, with the governor firing on exactly zero
+ticks. The arm was not being stopped, it was being dragged. `ForceGuard` now
+passes the tool axis as the compliance direction, so the arm yields only in the
+direction it can crush something in. The force limit stays three-dimensional.
+
+**How stiff the virtual spring is.** The steady-state offset is `F / K_a`, so a
+task that must *sustain* force spends that much of the policy's positional
+authority on compliance. At the default 250 N/m, holding the 9 N a press fit
+needs costs 36 mm of offset -- more than the controller's entire 35 mm budget --
+and the part never seats. Measured, for the scripted operator on press_fit:
+
+| compliance stiffness | task success | peak force | steps | governed |
+|---|---|---|---|---|
+| 250 N/m | 0/6 | 5.5 N | 190 (timeout) | 0% |
+| 900 N/m | 2/6 | 8.4 N | 148 | 0% |
+| 2200 N/m | 6/6 | 9.0 N | 65 | 0% |
+| 4000 N/m | 6/6 | 8.9 N | 65 | 0% |
+
+`TaskSpec.admittance_stiffness` is therefore set per task: 250 N/m for peg
+insertion, where contact is incidental; 900 for wiping; 2200 for the press fit.
+The bound is unaffected -- `test_the_bound_does_not_depend_on_the_compliance_stiffness`
+asserts that across the same range, in both the Python and the C++ suites.
+
 ## What this does not cover
 
 * The bound is stated against the **estimated** force, and the estimate carries

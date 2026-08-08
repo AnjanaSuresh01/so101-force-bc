@@ -65,6 +65,7 @@ public:
 private:
   bool build_chain(const std::string & robot_description);
   Eigen::Vector3d forward_kinematics(const Eigen::VectorXd & joints) const;
+  Eigen::Vector3d tool_axis(const Eigen::VectorXd & joints) const;
   Eigen::VectorXd cartesian_to_joint_delta(
     const Eigen::VectorXd & joints, const Eigen::Vector3d & delta) const;
   void read_state();
