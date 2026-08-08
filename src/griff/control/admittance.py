@@ -64,7 +64,13 @@ class AdmittanceConfig:
     force_limit: float = 8.0  # N, the bound the governor enforces
     deadband: float = 0.35  # N, below this the force estimate reads as noise
     max_offset: float = 0.035  # m, how far compliance may deviate from the policy
-    max_step: float = 0.006  # m per tick == 0.18 m/s, the free-space slew limit
+    #: m per tick == 6 cm/s. This is a safety parameter, not a comfort one. The
+    #: force signal arrives at 30 Hz through a two-tick filter and the arm lags
+    #: its own command, so how fast the reference may approach decides how hard
+    #: the first contact is. Measured against a policy deliberately ramming a
+    #: fixture: 18 cm/s peaks at 12.6 N on peg insertion, 6 cm/s at 7.7 N, for
+    #: the same 6 N limit.
+    max_step: float = 0.002
 
     # --- environment stiffness estimator ---
     #: Starting guess, used until contact has been probed. Deliberately stiff:

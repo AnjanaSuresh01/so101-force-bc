@@ -77,21 +77,44 @@ def test_guard_cuts_the_peak_force_a_rammer_produces(task: str) -> None:
         f"the unguarded rammer only reached {free:.1f} N on {task}; it is not a test of "
         "anything unless it can damage the workpiece"
     )
-    assert guarded < free, f"guarded {guarded:.1f} N was not below unguarded {free:.1f} N"
-    assert stats.governed_ticks > 0, "the governor never fired during a deliberate ram"
+    assert guarded < 0.75 * free, (
+        f"guarded {guarded:.1f} N was not a real reduction on unguarded {free:.1f} N"
+    )
+    assert stats.lead_clamped_ticks > 0, "nothing was clamped during a deliberate ram"
 
 
 @pytest.mark.slow
 @pytest.mark.parametrize("task", TASKS)
-def test_guard_keeps_a_rammer_near_the_configured_limit(task: str) -> None:
-    """The bound is stated against the *estimate*, so the ground-truth force it
-    corresponds to carries the estimator's error on top. The margin below is
-    that error, not slack in the controller: griff.calibrate.validate reports
-    an in-range RMSE of order 1-2 N.
+def test_guard_engages_its_lead_limit_against_a_rammer(task: str) -> None:
+    """The mechanism that does the bounding must actually be the one firing.
+
+    Against a rammer the *governor* often does not fire at all: the reference is
+    already retreating, and it is the arm -- still catching up from a command
+    issued ticks earlier -- that keeps driving in. The command-to-measurement
+    lead cap is what catches that case, so a run where nothing was clamped is a
+    run where this test proved nothing.
+    """
+    _, stats = run(task, guarded=True)
+    assert stats.lead_clamped_ticks > 0
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("task", TASKS)
+def test_guarded_rammer_stays_within_a_measured_margin(task: str) -> None:
+    """What the guard actually delivers against a deliberate ram.
+
+    Not the configured limit. Three things sit between the two: the force signal
+    is an estimate that lags, the arm lags its command, and first contact is an
+    impact whose magnitude is set by approach speed rather than by feedback.
+    Measured peaks against the rammer are 7.7 N (peg insertion, 6 N limit,
+    8 N overload), 8.5 N (wipe, 7 / 10) and 17.1 N (press fit, 12 / 14) -- so on
+    two of the three fixtures the guard holds the workpiece below its damage
+    threshold, and on the press fit, where the socket bottoms out on a rigid
+    stop, it does not. README and docs/admittance-bound.md say so.
     """
     guarded, _ = run(task, guarded=True)
     limit = SPECS[task].force_limit
-    assert guarded < limit + 6.0, f"{task}: {guarded:.1f} N against a {limit:.1f} N limit"
+    assert guarded < 1.6 * limit, f"{task}: {guarded:.1f} N against a {limit:.1f} N limit"
 
 
 def test_guard_is_transparent_in_free_space() -> None:

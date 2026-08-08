@@ -34,7 +34,7 @@ force_limited_admittance_controller:
       force_limit: 6.0
       deadband: 0.35
       max_offset: 0.035
-      max_step: 0.006
+      max_step: 0.002
       stiffness_prior: 4000.0
       stiffness_min: 250.0
       stiffness_max: 80000.0

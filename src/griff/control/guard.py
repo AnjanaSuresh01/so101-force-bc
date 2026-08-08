@@ -33,12 +33,25 @@ from griff.kinematics import forward_kinematics, solve_ik, tool_axis
 from griff.sim.env import TaskEnv
 
 
+#: Cartesian stiffness between where the tool is commanded and where it is, N/m.
+#:
+#: Measured, not derived: pressing each fixture quasi-statically and regressing
+#: true contact force on the command-to-measurement distance gives 600 N/m
+#: (press fit), 633 (wipe) and 674 (peg insertion) over the sub-overload band.
+#: The constant is set above all three so the resulting lead cap is conservative
+#: on every task -- a stiffness guess that is too high permits too little lead,
+#: which is the direction to be wrong in.
+SERVO_CARTESIAN_STIFFNESS = 850.0
+
+
 @dataclass
 class GuardStats:
     ticks: int = 0
     governed_ticks: int = 0
+    lead_clamped_ticks: int = 0
     ik_failures: int = 0
     max_correction_mm: float = 0.0
+    max_lead_mm: float = 0.0
 
     @property
     def governed_fraction(self) -> float:
@@ -56,6 +69,7 @@ class ForceGuard:
                 stiffness=env.spec.admittance_stiffness,
             )
         )
+        self.servo_stiffness = SERVO_CARTESIAN_STIFFNESS
         self.stats = GuardStats()
         self._last_q = env.joint_positions.copy()
 
@@ -75,6 +89,7 @@ class ForceGuard:
         reference = self.controller.step(
             target, np.asarray(force, dtype=float), compliance_axis=tool_axis(env.model, requested)
         )
+        reference = self._limit_lead(reference)
 
         result = solve_ik(env.model, env.data, reference, pitch, self._last_q)
         self.stats.ticks += 1
@@ -95,3 +110,37 @@ class ForceGuard:
 
         command[5] = requested[5]
         return command
+
+    def _limit_lead(self, reference: np.ndarray) -> np.ndarray:
+        """Cap how far the commanded pose may lead the measured one.
+
+        This is the mechanism that actually bounds force on a position-controlled
+        arm, and it took a rammer to find out. The admittance and the governor
+        both act on the *reference*, and both work: against an arm that is where
+        it was told to be, the settled force lands on the limit. A real arm is
+        not where it was told to be. It lags, and when it is wedged against a
+        fixture it lags a long way -- the reference can retreat while the servos,
+        still catching up from a command issued ticks ago, keep driving in. In
+        that state the governor sees a reference moving *away* from the contact
+        and correctly declines to intervene, while the true force climbs past
+        three times the limit.
+
+        Servo torque is proportional to command-minus-measurement, so bounding
+        that distance bounds the force directly, with no dynamics and no
+        estimate in the loop:
+
+            F ~ K_servo * |q_commanded - q_measured|  =>  lead <= F_max / K_servo
+
+        At 850 N/m and a 6 N limit that is 7 mm of permitted lead. Unlike the
+        governor, this holds whatever the arm is doing, because it is a
+        constraint between two positions rather than a reaction to a force.
+        """
+        actual = self.env.tool_point()
+        lead = reference - actual
+        distance = float(np.linalg.norm(lead))
+        self.stats.max_lead_mm = max(self.stats.max_lead_mm, distance * 1000)
+        allowed = self.controller.config.force_limit / self.servo_stiffness
+        if distance > allowed:
+            self.stats.lead_clamped_ticks += 1
+            return actual + lead * (allowed / distance)
+        return reference

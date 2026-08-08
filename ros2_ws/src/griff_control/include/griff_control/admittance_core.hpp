@@ -32,7 +32,10 @@ struct AdmittanceParameters
   double force_limit = 8.0;       // N, the bound the governor enforces
   double deadband = 0.35;         // N, below this the estimate reads as noise
   double max_offset = 0.035;      // m, compliance authority
-  double max_step = 0.006;        // m per cycle, free-space slew limit
+  // m per cycle == 6 cm/s. A safety parameter: how fast the reference may
+  // approach decides how hard first contact is, because force feedback arrives
+  // at 30 Hz through a filter and the arm lags its own command.
+  double max_step = 0.002;
   double stiffness_prior = 4000.0;      // N/m
   double stiffness_min = 250.0;         // N/m
   double stiffness_max = 80000.0;       // N/m
