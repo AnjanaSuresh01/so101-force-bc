@@ -112,7 +112,11 @@ controller_interface::CallbackReturn ForceLimitedAdmittanceController::on_config
   ik_damping_ = node->get_parameter("ik_damping").as_double();
   command_timeout_ = node->get_parameter("command_timeout").as_double();
 
-  admittance_parameters_.dt = 1.0 / std::max(1.0, get_update_rate());
+  // get_update_rate() returns unsigned int on Jazzy, so std::max(1.0, rate)
+  // cannot deduce a common template argument. Cast, rather than let the
+  // controller silently divide by a zero update rate if one is ever reported.
+  const double update_rate = static_cast<double>(get_update_rate());
+  admittance_parameters_.dt = 1.0 / std::max(1.0, update_rate);
   admittance_parameters_.mass = node->get_parameter("admittance.mass").as_double();
   admittance_parameters_.damping = node->get_parameter("admittance.damping").as_double();
   admittance_parameters_.stiffness = node->get_parameter("admittance.stiffness").as_double();
@@ -175,7 +179,7 @@ controller_interface::CallbackReturn ForceLimitedAdmittanceController::on_config
     node->get_logger(),
     "force-limited admittance ready: %zu joints, chain %s -> %s (%zu dof), limit %.2f N at %.0f Hz",
     joint_names_.size(), base_link_.c_str(), tool_link_.c_str(), arm_joints_,
-    admittance_parameters_.force_limit, get_update_rate());
+    admittance_parameters_.force_limit, update_rate);
   return controller_interface::CallbackReturn::SUCCESS;
 }
 
