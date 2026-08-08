@@ -32,7 +32,6 @@ from griff.control.admittance import AdmittanceConfig, AdmittanceController
 from griff.kinematics import forward_kinematics, solve_ik, tool_axis
 from griff.sim.env import TaskEnv
 
-
 #: Cartesian stiffness between where the tool is commanded and where it is, N/m.
 #:
 #: Measured, not derived: pressing each fixture quasi-statically and regressing

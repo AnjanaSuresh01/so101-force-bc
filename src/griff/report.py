@@ -112,12 +112,13 @@ def render(payload: dict[str, Any]) -> str:
             )
             + "\n"
         )
-        parts.append(
-            f"All rows above ran behind the force-limited admittance controller at a "
-            f"{spec.force_limit:.0f} N limit, over {guarded[0]['episodes']} episodes each.\n"
-            if guarded
-            else ""
-        )
+        if guarded:
+            parts.append(
+                f"All rows above ran behind the force-limited admittance controller at a "
+                f"{spec.force_limit:.0f} N limit, over {guarded[0]['episodes']} episodes each. "
+                f"Peak force is the simulator's ground truth; the controller and the policies "
+                f"both ran on the servo-load estimate.\n"
+            )
 
         # --- the force ablation, with capacity held fixed ---
         ablation = []
