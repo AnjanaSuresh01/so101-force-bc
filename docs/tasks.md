@@ -89,6 +89,27 @@ sharply.
 
 ---
 
+## Did the design work?
+
+Partly. Each task *does* contain an axis the cameras cannot resolve — that is a
+property of the fixtures, and it is verifiable by reading the randomisation draw
+in `meta/episodes_griff.jsonl`. What the results do not show is policies
+exploiting it: measured against the capacity-matched control arm, the force
+signal is worth 0 pp of force-aware success on average across the six cells
+(see the README's ablation table).
+
+Two readings, and this repo cannot separate them:
+
+* the tasks are solvable from vision and proprioception alone at these
+  tolerances, so the force channel is redundant; or
+* 3,000 CPU steps on 60 demonstrations is not enough for a 1.08 M-parameter
+  policy to learn to use a noisy 3-vector, and a longer run would find it.
+
+If you want to push on this, the cheapest discriminating experiment is
+press_fit: its hidden variable (retainer stiffness) is the one that is
+*provably* unobservable from pixels, so a policy that never beats the blinded
+control there is not being denied information by the camera.
+
 ## What is simplified, and why
 
 **Tools are welded, not grasped.** Peg, pad and part are held to the tool by an

@@ -15,13 +15,20 @@ from them, ablated on whether they can feel contact. Deployed behind a
 force-limited admittance controller. Scored on task success **and** peak contact
 force, with runs that succeed by overloading the workpiece counted as failures.
 
-<!-- HEADLINE-PLACEHOLDER: replace with real `griff evaluate` output before publishing -->
-
 ```console
-$ griff evaluate --task peg_insert
+$ griff evaluate --task wipe
+
+  wipe diffusion/vision_force (guarded):   task 0.70 force-aware 0.70 peak 3.3 N (max 4.5)
+  wipe diffusion/vision_force (unguarded): task 0.80 force-aware 0.10 peak 17.4 N (max 21.7)
 ```
 
-See [results/RESULTS.md](results/RESULTS.md) for the measured tables.
+Read the second row twice. It wiped the plate in **80% of episodes** — and did it
+by scrubbing at 17 N against a plate rated for 10. **80% of its runs damaged the
+workpiece.** On task success it is the better policy of the two. On force-aware
+success it is a seventh as good. Which metric you report decides which one you
+ship.
+
+Full tables in [results/RESULTS.md](results/RESULTS.md).
 
 ---
 
@@ -118,6 +125,40 @@ schedule, seed 0, on 60 demonstrations per task, CPU-only. That is a modest
 budget — ACT's own experiments run far longer — and the absolute success rates
 should be read as "what this much data and compute buys", not as a ceiling. The
 comparison between cells is what the budget was spent to make fair.
+
+### And the third arm earned its keep, by spoiling the result
+
+Force-aware success across the six (task, policy) cells, all guarded:
+
+| cell | vision | blinded force | force | information | capacity |
+|---|---|---|---|---|---|
+| peg_insert / act | 40% | 70% | 60% | −10 pp | +30 pp |
+| peg_insert / diffusion | 10% | 15% | 30% | +15 pp | +5 pp |
+| wipe / act | 35% | 65% | 65% | 0 pp | +30 pp |
+| wipe / diffusion | 10% | 55% | 70% | +15 pp | +45 pp |
+| press_fit / act | 15% | 15% | 0% | −15 pp | 0 pp |
+| press_fit / diffusion | 25% | 20% | 15% | −5 pp | −5 pp |
+| **mean** | | | | **0 pp** | **+17.5 pp** |
+
+`vision_force` beats `vision` in four of six cells, which read on its own says
+force conditioning helps. It does not survive the control. Against
+`vision_zeroforce` — same architecture, same 1,077,030 parameters, force input
+replaced by a constant zero — the force *signal* is worth **0 pp on average**,
+while the parameters alone are worth **+17.5 pp**. At n = 20 per cell a ±15 pp
+swing is inside the noise, so the per-cell signs are not individually meaningful
+either.
+
+So the honest reading is: **at this training budget, on these tasks, what looks
+like a force benefit is capacity.** That is not the result I set out to
+demonstrate, and it is the reason the third arm exists — a two-arm ablation
+would have reported "force conditioning improves force-aware success in 4 of 6
+cells" and attributed the gain to the wrong cause.
+
+What it does *not* say is that force is useless for contact-rich manipulation.
+It says these policies, at 3,000 CPU steps on 60 demonstrations, did not extract
+it. Distinguishing "the signal does not help" from "this model did not learn to
+use it" needs a larger budget than this machine has, and that is the honest
+boundary of the experiment.
 
 ---
 
