@@ -118,17 +118,56 @@ jobs:
       - uses: ros-tooling/setup-ros@v0.7
         with:
           required-ros-distributions: jazzy
-      # griff_policy is deliberately not in this list: it imports `griff`, which
-      # needs torch and MuJoCo in the ROS Python environment. Installing a
-      # training stack into a ROS job to check two nodes is not a trade worth
-      # making; they are linted and type-checked by the `test` job above.
+      # Explicit rosdep + colcon rather than action-ros-ci. Not a preference:
+      # when that action fails, all it leaves behind is "the process
+      # '/usr/bin/bash' failed with exit code 1", and GitHub does not serve job
+      # logs over the API without admin rights on the repo. These steps echo
+      # their own errors as ::error:: annotations, which *are* readable, so a
+      # red build here says what broke instead of only that something did.
       #
-      # `colcon test` here runs one thing: the gtest in griff_control, which
-      # asserts the same force bound as the Python suite against the same wall
-      # model. The ament style linters are not enabled -- see the note in
-      # ros2_ws/src/griff_control/CMakeLists.txt.
-      - uses: ros-tooling/action-ros-ci@v0.4
-        with:
-          package-name: griff_msgs griff_description griff_control griff_bringup
-          target-ros2-distro: jazzy
-          vcs-repo-file-url: ""
+      # griff_policy is deliberately excluded: it imports `griff`, which needs
+      # torch and MuJoCo in the ROS Python environment. Installing a training
+      # stack into a ROS job to check two nodes is not a trade worth making;
+      # those nodes are linted and type-checked by the `test` job above.
+      - name: Resolve dependencies
+        run: |
+          set -o pipefail
+          source /opt/ros/jazzy/setup.bash
+          rosdep update --rosdistro jazzy
+          rosdep install --from-paths ros2_ws/src --ignore-src -y --rosdistro jazzy \
+            2>&1 | tee /tmp/rosdep.log || {
+              echo "::error::rosdep failed"
+              grep -iE "error|cannot|unable|not found" /tmp/rosdep.log | head -10 \
+                | while IFS= read -r l; do echo "::error::rosdep: ${l}"; done
+              exit 1
+            }
+
+      - name: Build
+        run: |
+          set -o pipefail
+          source /opt/ros/jazzy/setup.bash
+          colcon build --base-paths ros2_ws/src \
+            --packages-up-to griff_msgs griff_description griff_control griff_bringup \
+            --event-handlers console_direct+ 2>&1 | tee /tmp/build.log || {
+              echo "::error::colcon build failed"
+              grep -nE "error:|CMake Error|fatal error|Could not find" /tmp/build.log \
+                | head -15 | while IFS= read -r l; do echo "::error::build: ${l:0:400}"; done
+              exit 1
+            }
+
+      # One test runs here: the gtest in griff_control, asserting the same force
+      # bound as the Python suite against the same spring-wall model. The ament
+      # style linters are not enabled -- see the note in griff_control's
+      # CMakeLists.txt.
+      - name: Test
+        run: |
+          set -o pipefail
+          source /opt/ros/jazzy/setup.bash
+          colcon test --base-paths ros2_ws/src --packages-select griff_control \
+            --event-handlers console_direct+ 2>&1 | tee /tmp/test.log || true
+          colcon test-result --all --verbose 2>&1 | tee /tmp/result.log || {
+              echo "::error::griff_control gtest failed"
+              grep -iE "fail|error" /tmp/result.log | head -15 \
+                | while IFS= read -r l; do echo "::error::test: ${l:0:400}"; done
+              exit 1
+            }
